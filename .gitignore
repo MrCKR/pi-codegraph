@@ -2,8 +2,7 @@
 node_modules/
 package-lock.json
 
-# build outputs
-dist/
+# build cache
 *.tsbuildinfo
 
 # package artifacts

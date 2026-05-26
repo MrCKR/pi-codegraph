@@ -3,7 +3,7 @@
 ## 安装
 
 ```bash
-pi install git:https://github.com/MrCKR/pi-codegraph
+pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
 ```
 
 安装后在 pi 内执行：
@@ -23,7 +23,7 @@ pi install git:https://github.com/MrCKR/pi-codegraph
 
 ```bash
 pi remove git:https://github.com/MrCKR/pi-codegraph
-pi install git:https://github.com/MrCKR/pi-codegraph
+pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
 ```
 
 然后：
