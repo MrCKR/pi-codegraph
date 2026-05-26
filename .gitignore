@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+package-lock.json
+
+# build outputs
+dist/
+*.tsbuildinfo
+
+# package artifacts
+*.tgz
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local env
+.env
+.env.*
+!.env.example
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# pi / runtime temp
+.pi/tmp/
+.pi/cache/
+.codegraph/

@@ -1,0 +1,41 @@
+{
+  "name": "pi-codegraph",
+  "version": "0.1.0",
+  "description": "Pi native extension for CodeGraph tools and indexing commands.",
+  "type": "module",
+  "private": true,
+  "keywords": [
+    "pi-package",
+    "codegraph",
+    "code-intelligence"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  },
+  "dependencies": {
+    "@colbymchenry/codegraph": "^0.9.4"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.75.5",
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3",
+    "typebox": "^1.0.58",
+    "@earendil-works/pi-tui": "^0.75.5"
+  }
+}
