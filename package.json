@@ -25,17 +25,16 @@
     ]
   },
   "dependencies": {
-    "@colbymchenry/codegraph": "^0.9.4"
+    "@colbymchenry/codegraph": "^0.9.4",
+    "@earendil-works/pi-tui": "^0.75.5",
+    "typebox": "^1.0.58"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "typebox": "*"
+    "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "^0.75.5",
     "@types/node": "^24.10.1",
-    "typescript": "^5.9.3",
-    "typebox": "^1.0.58",
-    "@earendil-works/pi-tui": "^0.75.5"
+    "typescript": "^5.9.3"
   }
 }
