@@ -86,8 +86,11 @@ export interface LoadedCodeGraphRuntime {
     codegraphClass: CodeGraphClass;
     toolsModule: ToolsModule;
     serverInstructions: string;
+    codegraphVersion: string;
     platformPackageName: string;
     platformPackageRoot: string;
+    codegraphPackageRoot: string;
+    extensionPackageRoot: string;
     cliCommand: string;
     cliArgsPrefix: string[];
     workerCommand: string;

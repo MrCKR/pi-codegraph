@@ -1,9 +1,8 @@
 {
   "name": "pi-codegraph",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Pi native extension for CodeGraph tools and indexing commands.",
   "type": "module",
-  "private": true,
   "keywords": [
     "pi-package",
     "codegraph",
@@ -17,7 +16,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit"
+    "check": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run check && npm run build"
   },
   "pi": {
     "extensions": [
@@ -36,5 +36,15 @@
     "@earendil-works/pi-coding-agent": "^0.75.5",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrCKR/pi-codegraph.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrCKR/pi-codegraph/issues"
+  },
+  "homepage": "https://github.com/MrCKR/pi-codegraph#readme",
+  "license": "MIT",
+  "author": "MrCKR"
 }

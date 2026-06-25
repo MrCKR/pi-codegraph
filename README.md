@@ -3,7 +3,7 @@
 ## 安装
 
 ```bash
-pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
+pi install npm:pi-codegraph
 ```
 
 安装后在 pi 内执行：
@@ -16,20 +16,40 @@ pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
 
 ```text
 /codegraph init
-/codegraph index
 ```
 
-更新时最简单的方式：
+`/codegraph init` 是幂等命令：未初始化时会自动创建 `.codegraph/`，已初始化时会直接重建索引。
+
+只更新本地 CodeGraph 引擎：
+
+```text
+/codegraph update
+/reload
+```
+
+更新整个 pi-codegraph 扩展时：
 
 ```bash
-pi remove git:https://github.com/MrCKR/pi-codegraph
-pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
+pi update npm:pi-codegraph
 ```
 
 然后：
 
 ```text
 /reload
+```
+
+如果之前使用 git 安装，可以迁移到 npm 包：
+
+```bash
+pi remove git:https://github.com/MrCKR/pi-codegraph
+pi install npm:pi-codegraph
+```
+
+也可以按 Git tag 固定源码版本：
+
+```bash
+pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.2
 ```
 
 ## 这是什么
@@ -39,18 +59,20 @@ pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
 - `codegraph_*` native tools
 - `/codegraph <subcommand>` 命令
 - 内置 CodeGraph 工具使用提示词
-- `/codegraph index` / `/codegraph sync` 实时进度界面
+- `/codegraph init` / `/codegraph sync` 实时进度界面
+- `/codegraph version` / `/codegraph update` 本地引擎维护命令
 
 不需要全局安装 `codegraph`，也不需要配置 MCP。
 
 ## 命令
 
 ```text
-/codegraph init       初始化当前项目
-/codegraph index      建立或重建索引，带实时进度界面
+/codegraph init       初始化并建立或重建索引，带实时进度界面
 /codegraph sync       手动同步代码变动，带实时进度界面
 /codegraph status     查看索引状态
 /codegraph uninit     删除 .codegraph 索引
+/codegraph version    查看本地 CodeGraph 引擎版本
+/codegraph update     更新本地 CodeGraph 引擎
 /codegraph help       查看帮助
 ```
 
@@ -88,15 +110,20 @@ pi install git:https://github.com/MrCKR/pi-codegraph@v0.1.1
 
 ## 上游 CodeGraph 更新
 
-本包依赖 `@colbymchenry/codegraph`。维护者想更新上游稳定版时：
+本包依赖 `@colbymchenry/codegraph`。已安装用户想只更新本机的 CodeGraph 引擎时，在 pi 内执行：
+
+```text
+/codegraph update
+/reload
+```
+
+`/codegraph update` 会在扩展自身安装目录内更新 `@colbymchenry/codegraph` 到最新稳定版，不会修改当前项目的 `.codegraph` 索引。
+维护者如果需要锁定或适配上游 API 变化，应同步更新本仓库依赖并运行：
 
 ```bash
-npm install @colbymchenry/codegraph@latest
 npm run check
 npm run build
 ```
-
-如果上游 API 变化导致扩展失效，需要同步适配本扩展代码。
 
 ## 注意
 

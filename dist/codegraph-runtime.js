@@ -38,6 +38,10 @@ export function loadCodeGraphRuntime() {
     if (cachedRuntime)
         return cachedRuntime;
     const platformPackageName = getPlatformPackageName();
+    const packageJson = require.resolve("@colbymchenry/codegraph/package.json");
+    const codegraphPackageRoot = dirname(packageJson);
+    const extensionPackageRoot = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
+    const packageInfo = require(packageJson);
     const platformPackageJson = require.resolve(`${platformPackageName}/package.json`);
     const platformPackageRoot = dirname(platformPackageJson);
     const codegraph = require(`${platformPackageName}/lib/dist/index.js`);
@@ -49,8 +53,11 @@ export function loadCodeGraphRuntime() {
         codegraphClass: readCodeGraphClass(codegraph),
         toolsModule,
         serverInstructions: instructionsModule.SERVER_INSTRUCTIONS,
+        codegraphVersion: packageInfo.version ?? "unknown",
         platformPackageName,
         platformPackageRoot,
+        codegraphPackageRoot,
+        extensionPackageRoot,
         cliCommand: cli.command,
         cliArgsPrefix: cli.argsPrefix,
         workerCommand: process.execPath,

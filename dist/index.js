@@ -4,13 +4,17 @@
  * 实现日期：2026-05-26
  */
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Type } from "typebox";
 import { loadCodeGraphRuntime, } from "./codegraph-runtime.js";
 import { CodeGraphProgressComponent, formatProgress } from "./progress-component.js";
-const CODEGRAPH_COMMANDS = ["init", "index", "sync", "status", "uninit", "help"];
+const CODEGRAPH_WORKER_COMMANDS = ["init", "sync", "status", "uninit"];
+const CODEGRAPH_LOCAL_COMMANDS = ["version", "update"];
+const CODEGRAPH_COMMANDS = [...CODEGRAPH_WORKER_COMMANDS, ...CODEGRAPH_LOCAL_COMMANDS, "help"];
 const COMMAND_TIMEOUT_MS = 10 * 60 * 1000;
 const WORKER_PROGRESS_INTERVAL_MS = 500;
-const CUSTOM_UI_COMMANDS = new Set(["index", "sync"]);
+const CUSTOM_UI_COMMANDS = new Set(["init", "sync"]);
 /** 把 MCP JSON Schema 转为 pi 可接受的 TypeBox schema。 */
 function toTypeBoxSchema(tool) {
     return Type.Unsafe(tool.inputSchema);
@@ -165,6 +169,37 @@ async function runCodegraphWorkerWithCustomUi(ctx, command, args) {
         return component;
     });
 }
+/** 在扩展包目录内更新本地 CodeGraph npm 依赖。 */
+async function runLocalCodegraphUpdate(ctx) {
+    const runtime = loadCodeGraphRuntime();
+    const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+    const proc = spawn(npmCommand, ["install", "@colbymchenry/codegraph@latest"], {
+        cwd: runtime.extensionPackageRoot,
+        stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    ctx.ui.setStatus("codegraph", "CodeGraph update: npm install running...");
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+            proc.kill("SIGTERM");
+        }, COMMAND_TIMEOUT_MS);
+        proc.stdout.on("data", (chunk) => {
+            stdout += chunk.toString();
+        });
+        proc.stderr.on("data", (chunk) => {
+            stderr += chunk.toString();
+        });
+        proc.on("error", (error) => {
+            clearTimeout(timeout);
+            resolve({ code: 1, stdout, stderr, error: error.message });
+        });
+        proc.on("close", (code) => {
+            clearTimeout(timeout);
+            resolve({ code: code ?? 1, stdout, stderr });
+        });
+    });
+}
 /** 返回当前目录往上的 CodeGraph 根目录。 */
 function findProjectRoot(cwd) {
     const runtime = loadCodeGraphRuntime();
@@ -282,11 +317,12 @@ async function startWatcher(state, ctx) {
 function showHelp(ctx) {
     ctx.ui.notify([
         "CodeGraph 命令：",
-        "/codegraph init       初始化当前项目",
-        "/codegraph index      建立或重建索引",
+        "/codegraph init       初始化并建立或重建索引",
         "/codegraph sync       手动同步代码变动",
         "/codegraph status     查看索引状态",
         "/codegraph uninit     删除 .codegraph 索引",
+        "/codegraph version    查看本地 CodeGraph 引擎版本",
+        "/codegraph update     更新本地 CodeGraph 引擎并提示 reload",
         "/codegraph help       查看帮助",
     ].join("\n"), "info");
 }
@@ -326,14 +362,6 @@ function formatStatusSummary(json) {
 /** 格式化 init 结果。 */
 function formatInitSummary(result) {
     const data = (result.result?.data ?? {});
-    if (data.alreadyInitialized) {
-        return ["CodeGraph 已初始化，无需重复 init。", `项目：${data.projectPath}`, "下一步：/codegraph status 或 /codegraph sync"].join("\n");
-    }
-    return ["CodeGraph 初始化完成。", data.projectPath ? `项目：${data.projectPath}` : undefined, "下一步：/codegraph index"].filter(Boolean).join("\n");
-}
-/** 格式化 index 结果。 */
-function formatIndexSummary(result) {
-    const data = (result.result?.data ?? {});
     return [
         data.success === false ? "CodeGraph 索引失败。" : "CodeGraph 索引完成。",
         `文件：${(data.filesIndexed ?? 0).toLocaleString()} indexed，${(data.filesSkipped ?? 0).toLocaleString()} skipped，${(data.filesErrored ?? 0).toLocaleString()} errored`,
@@ -372,6 +400,53 @@ function formatDuration(ms) {
     const minutes = Math.floor(seconds / 60);
     return `${minutes}m ${Math.round(seconds % 60)}s`;
 }
+/** 读取更新后的 CodeGraph 依赖版本。 */
+async function readInstalledCodegraphVersion() {
+    const runtime = loadCodeGraphRuntime();
+    const packageJson = join(runtime.codegraphPackageRoot, "package.json");
+    const content = await readFile(packageJson, "utf8");
+    const data = JSON.parse(content);
+    return data.version ?? "unknown";
+}
+/** 格式化本地版本信息。 */
+function formatVersionSummary() {
+    const runtime = loadCodeGraphRuntime();
+    return [
+        "CodeGraph 本地引擎：",
+        `版本：${runtime.codegraphVersion}`,
+        `依赖目录：${runtime.codegraphPackageRoot}`,
+        `扩展目录：${runtime.extensionPackageRoot}`,
+        `平台包：${runtime.platformPackageName}`,
+    ].join("\n");
+}
+/** 格式化本地更新结果。 */
+async function formatUpdateSummary(previousVersion, result) {
+    if (result.error || result.code !== 0) {
+        const detail = result.error ?? result.stderr.trim() ?? result.stdout.trim() ?? "unknown error";
+        return ["CodeGraph 本地引擎更新失败。", `当前版本：${previousVersion}`, detail].join("\n");
+    }
+    const nextVersion = await readInstalledCodegraphVersion();
+    return [
+        nextVersion === previousVersion ? "CodeGraph 本地引擎已是最新。" : "CodeGraph 本地引擎更新完成。",
+        `版本：${previousVersion} → ${nextVersion}`,
+        "下一步：执行 /reload 让当前 pi 会话加载新版本。",
+    ].join("\n");
+}
+/** 处理本地维护命令，不读取或修改项目索引。 */
+async function handleLocalCommand(command, ctx, state) {
+    if (command === "version") {
+        ctx.ui.setStatus("codegraph", "CodeGraph version");
+        ctx.ui.notify(formatVersionSummary(), "info");
+        return;
+    }
+    const runtime = loadCodeGraphRuntime();
+    closeState(state);
+    ctx.ui.notify(`CodeGraph update 已开始...\n扩展目录：${runtime.extensionPackageRoot}`, "info");
+    const result = await runLocalCodegraphUpdate(ctx);
+    const summary = await formatUpdateSummary(runtime.codegraphVersion, result);
+    ctx.ui.setStatus("codegraph", result.code === 0 && !result.error ? "CodeGraph update: done" : "CodeGraph update: failed");
+    ctx.ui.notify(summary, result.code === 0 && !result.error ? "info" : "error");
+}
 /** 根据 worker 结果生成清晰摘要。 */
 function formatWorkerSummary(command, result) {
     if (result.error) {
@@ -379,7 +454,6 @@ function formatWorkerSummary(command, result) {
     }
     switch (command) {
         case "init": return formatInitSummary(result);
-        case "index": return formatIndexSummary(result);
         case "sync": return formatSyncSummary(result);
         case "status": return formatStatusSummary(result.result?.data) ?? "CodeGraph status 完成。";
         case "uninit": return formatUninitSummary(result);
@@ -396,7 +470,11 @@ async function handleCodegraphCommand(argsText, ctx, state) {
         return;
     }
     if (!CODEGRAPH_COMMANDS.includes(subcommand)) {
-        ctx.ui.notify(`未知子命令：${subcommand}\n用法：/codegraph init|index|sync|status|uninit`, "warning");
+        ctx.ui.notify(`未知子命令：${subcommand}\n用法：/codegraph init|sync|status|uninit|version|update`, "warning");
+        return;
+    }
+    if (CODEGRAPH_LOCAL_COMMANDS.includes(subcommand)) {
+        await handleLocalCommand(subcommand, ctx, state);
         return;
     }
     const command = subcommand;
@@ -407,7 +485,7 @@ async function handleCodegraphCommand(argsText, ctx, state) {
         ? await runCodegraphWorkerWithCustomUi(ctx, command, workerArgs)
         : await runCodegraphWorker(ctx, command, workerArgs);
     ctx.ui.setStatus("codegraph", result.code === 0 && !result.error ? `CodeGraph ${command}: done` : `CodeGraph ${command}: failed`);
-    if (command === "init" || command === "index" || command === "sync" || command === "uninit") {
+    if (command === "init" || command === "sync" || command === "uninit") {
         closeState(state);
         void startWatcher(state, ctx);
     }
@@ -423,7 +501,7 @@ function buildPrompt(systemPrompt, selectedTools, cwd) {
     const root = findProjectRoot(cwd);
     const status = root
         ? `当前项目已发现 CodeGraph 索引根目录：${root}`
-        : "当前项目未发现 .codegraph/。如需结构化代码检索，先询问用户是否运行 `/codegraph init` 和 `/codegraph index`。";
+        : "当前项目未发现 .codegraph/。如需结构化代码检索，先询问用户是否运行 `/codegraph init`。";
     return `${systemPrompt}\n\n${runtime.serverInstructions}\n\n## Pi native CodeGraph status\n\n${status}\n`;
 }
 export default function codegraphPiExtension(pi) {
@@ -449,7 +527,7 @@ export default function codegraphPiExtension(pi) {
         });
     }
     pi.registerCommand("codegraph", {
-        description: "管理 CodeGraph：/codegraph init|index|sync|status|uninit|help",
+        description: "管理 CodeGraph：/codegraph init|sync|status|uninit|version|update|help",
         getArgumentCompletions: (prefix) => {
             const first = prefix.trim().split(/\s+/)[0] ?? "";
             return CODEGRAPH_COMMANDS.filter((command) => command.startsWith(first)).map((command) => ({ value: command, label: command }));

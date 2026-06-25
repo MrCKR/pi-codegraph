@@ -5,7 +5,7 @@
  */
 import type { Component, TUI } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
-export type ProgressCommand = "init" | "index" | "sync" | "status" | "uninit";
+export type ProgressCommand = "init" | "sync" | "status" | "uninit";
 export interface ProgressMessage {
     type: "start" | "progress" | "result" | "error";
     command: ProgressCommand;

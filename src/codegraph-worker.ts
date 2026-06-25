@@ -8,7 +8,7 @@ import { rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { loadCodeGraphRuntime } from "./codegraph-runtime.js";
 
-type WorkerCommand = "init" | "index" | "sync" | "status" | "uninit";
+type WorkerCommand = "init" | "sync" | "status" | "uninit";
 
 interface WorkerMessage {
 	type: "start" | "progress" | "result" | "error";
@@ -74,47 +74,26 @@ function readStatus(projectPath: string): Record<string, unknown> {
 	}
 }
 
-/** 初始化当前项目。 */
-async function runInit(projectPath: string, index: boolean): Promise<void> {
+/** 确保项目已初始化，然后全量建立索引。 */
+async function runInit(projectPath: string, force: boolean): Promise<void> {
 	const runtime = loadCodeGraphRuntime();
 	const root = runtime.codegraph.findNearestCodeGraphRoot(projectPath);
-	emit({ type: "start", command: "init", message: "checking project" });
-	if (root) {
-		emit({ type: "result", command: "init", message: "already initialized", data: { projectPath: root, alreadyInitialized: true } });
-		return;
-	}
+	const projectRoot = root ?? projectPath;
 
-	emit({ type: "progress", command: "init", phase: "creating", current: 0, total: index ? 2 : 1 });
-	const cg = await runtime.codegraphClass.init(projectPath, { index: false });
+	emit({ type: "start", command: "init", message: root ? "opening project" : "initializing project", data: { projectPath: projectRoot, initialized: Boolean(root) } });
+	const cg = root ? await runtime.codegraphClass.open(root) : await runtime.codegraphClass.init(projectPath, { index: false });
 	try {
-		if (index) {
-			await cg.indexAll({
-				onProgress: (progress) => emit({ type: "progress", command: "init", ...progress }),
-			});
+		if (!root) {
+			emit({ type: "progress", command: "init", phase: "creating", current: 1, total: 1 });
 		}
-	} finally {
-		cg.close();
-	}
-	emit({ type: "result", command: "init", message: "initialized", data: { projectPath } });
-}
-
-/** 全量建立索引。 */
-async function runIndex(projectPath: string, force: boolean): Promise<void> {
-	const runtime = loadCodeGraphRuntime();
-	const root = runtime.codegraph.findNearestCodeGraphRoot(projectPath);
-	if (!root) throw new Error("CodeGraph is not initialized. Run /codegraph init first.");
-
-	emit({ type: "start", command: "index", message: "opening project", data: { projectPath: root } });
-	const cg = await runtime.codegraphClass.open(root);
-	try {
-		if (force) {
-			emit({ type: "progress", command: "index", phase: "clearing", current: 0, total: 1 });
+		if (force && root) {
+			emit({ type: "progress", command: "init", phase: "clearing", current: 0, total: 1 });
 			cg.clear();
 		}
 		const result = await cg.indexAll({
-			onProgress: (progress) => emit({ type: "progress", command: "index", ...progress }),
+			onProgress: (progress) => emit({ type: "progress", command: "init", ...progress }),
 		});
-		emit({ type: "result", command: "index", message: result.success ? "indexed" : "index failed", data: result });
+		emit({ type: "result", command: "init", message: result.success ? "indexed" : "index failed", data: { ...result, projectPath: projectRoot, initialized: !root } });
 		if (!result.success) process.exitCode = 1;
 	} finally {
 		cg.close();
@@ -159,16 +138,13 @@ async function main(): Promise<void> {
 	const [, , commandArg, projectArg, ...flags] = process.argv;
 	const command = commandArg as WorkerCommand | undefined;
 	const projectPath = resolve(projectArg || process.cwd());
-	if (!command || !["init", "index", "sync", "status", "uninit"].includes(command)) {
-		throw new Error("Usage: codegraph-worker <init|index|sync|status|uninit> <projectPath> [--index] [--force]");
+	if (!command || !["init", "sync", "status", "uninit"].includes(command)) {
+		throw new Error("Usage: codegraph-worker <init|sync|status|uninit> <projectPath> [--force]");
 	}
 
 	switch (command) {
 		case "init":
-			await runInit(projectPath, flags.includes("--index"));
-			break;
-		case "index":
-			await runIndex(projectPath, flags.includes("--force"));
+			await runInit(projectPath, flags.includes("--force"));
 			break;
 		case "sync":
 			await runSync(projectPath);
