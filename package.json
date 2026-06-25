@@ -1,5 +1,5 @@
 {
-  "name": "pi-codegraph",
+  "name": "@alpsckr/pi-codegraph",
   "version": "0.1.2",
   "description": "Pi native extension for CodeGraph tools and indexing commands.",
   "type": "module",

@@ -3,7 +3,7 @@
 ## 安装
 
 ```bash
-pi install npm:pi-codegraph
+pi install npm:@alpsckr/pi-codegraph
 ```
 
 安装后在 pi 内执行：
@@ -30,7 +30,7 @@ pi install npm:pi-codegraph
 更新整个 pi-codegraph 扩展时：
 
 ```bash
-pi update npm:pi-codegraph
+pi update npm:@alpsckr/pi-codegraph
 ```
 
 然后：
@@ -43,7 +43,7 @@ pi update npm:pi-codegraph
 
 ```bash
 pi remove git:https://github.com/MrCKR/pi-codegraph
-pi install npm:pi-codegraph
+pi install npm:@alpsckr/pi-codegraph
 ```
 
 也可以按 Git tag 固定源码版本：
